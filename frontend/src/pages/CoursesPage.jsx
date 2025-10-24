@@ -22,7 +22,20 @@ const CoursesPage = () => {
         console.error('Error fetching courses data:', error)
       }
     }
+
+    const fetchLearningData = async () => {
+      try {
+        const response = await fetch('/data/learning.json')
+        const learningData = await response.json()
+        // Store learning data for stats calculation
+        setCoursesData(prev => ({ ...prev, learningData }))
+      } catch (error) {
+        console.error('Error fetching learning data:', error)
+      }
+    }
+
     fetchCoursesData()
+    fetchLearningData()
   }, [])
 
   if (!coursesData) {
@@ -31,11 +44,66 @@ const CoursesPage = () => {
 
   const { statsCards, courseCards, popularCourses } = coursesData
 
-  // Filter courses based on user's purchased courses
-  const myCourses = courseCards.filter(course =>
-    user?.purchasedCourses?.some(purchased => purchased.courseId === course.id)
-  )
+  // Filter courses based on user's purchased courses and add progress info
+  const myCourses = courseCards
+    .filter(course => user?.purchasedCourses?.some(purchased => purchased.courseId === course.id))
+    .map(course => {
+      const purchasedCourse = user?.purchasedCourses?.find(p => p.courseId === course.id);
+      const courseData = coursesData?.learningData?.[course.id.toString()];
+      const totalLessons = courseData?.modules?.flatMap(module => module.lessons)?.length || 0;
+      const completedLessons = purchasedCourse?.progress?.completedLessons?.length || 0;
 
+      return {
+        ...course,
+        lessons: `${completedLessons} of ${totalLessons} lessons`,
+        progress: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+        status: completedLessons === totalLessons && totalLessons > 0 ? 'Completed' :
+                completedLessons > 0 ? 'In Progress' : 'Not Started'
+      };
+    })
+
+  // Calculate dynamic stats based on user's actual progress
+  const calculateStats = () => {
+    if (!user?.purchasedCourses || !coursesData?.learningData) return statsCards;
+
+    let coursesInProgress = 0;
+    let completedCourses = 0;
+    let totalLearningHours = 0;
+
+    user.purchasedCourses.forEach(purchasedCourse => {
+      const courseData = coursesData.learningData[purchasedCourse.courseId.toString()];
+      if (courseData) {
+        const totalLessons = courseData.modules?.flatMap(module => module.lessons)?.length || 0;
+        const completedLessons = purchasedCourse.progress?.completedLessons?.length || 0;
+
+        if (completedLessons === totalLessons && totalLessons > 0) {
+          completedCourses++;
+        } else if (completedLessons > 0) {
+          coursesInProgress++;
+        }
+
+        // Calculate learning hours (assuming each lesson is ~10 minutes)
+        totalLearningHours += completedLessons * 10;
+      }
+    });
+
+    return [
+      {
+        ...statsCards[0],
+        value: coursesInProgress.toString()
+      },
+      {
+        ...statsCards[1],
+        value: completedCourses.toString()
+      },
+      {
+        ...statsCards[2],
+        value: `${Math.floor(totalLearningHours / 60)}h`
+      }
+    ];
+  };
+
+  const dynamicStatsCards = calculateStats();
   const allCourses = activeTab === 'my-courses' ? myCourses : popularCourses
 
   return (
@@ -90,7 +158,7 @@ const CoursesPage = () => {
             {/* Stats Cards - Only show for My Courses */}
             {activeTab === 'my-courses' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {statsCards.map((stat, index) => (
+                {dynamicStatsCards.map((stat, index) => (
                   <div key={index} className={`bg-white rounded-xl p-6 shadow-sm border border-gray-100 ${stat.bgColor}`}>
                     <div className="flex items-center space-x-4">
                       <div className={`p-3 rounded-lg ${stat.iconBg}`}>
