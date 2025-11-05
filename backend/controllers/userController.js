@@ -301,4 +301,136 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, getUserProfile, updateUserProfile, purchaseCourse, updateCourseProgress };
+// @desc    Get watched videos data
+// @route   GET /api/users/watched-videos
+// @access  Private
+const getWatchedVideos = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const Course = (await import('../models/Course.js')).default;
+
+    // Get all courses data
+    const allCourses = await Course.find({});
+    const courseMap = {};
+    allCourses.forEach(course => {
+      courseMap[course.id] = course;
+    });
+
+    const watchedVideos = [];
+
+    // Process each purchased course
+    user.purchasedCourses.forEach(purchasedCourse => {
+      const courseData = courseMap[purchasedCourse.courseId];
+
+      if (courseData && courseData.modules) {
+        // Flatten all lessons from all modules
+        courseData.modules.forEach(module => {
+          if (module.lessons) {
+            module.lessons.forEach(lesson => {
+              const completedLesson = purchasedCourse.progress.completedLessons.find(
+                cl => cl.lessonId === lesson.id
+              );
+
+              let progress = 0;
+              let status = "not-started";
+              let lastWatched = null;
+
+              if (completedLesson) {
+                // This lesson has been watched/completed
+                progress = 100;
+                status = "completed";
+                lastWatched = completedLesson.completedAt;
+              } else if (purchasedCourse.progress.currentLesson &&
+                         purchasedCourse.progress.currentLesson.lessonId === lesson.id) {
+                // This is the current lesson being watched
+                progress = purchasedCourse.progress.currentLesson.progress || 50; // Use stored progress or default to 50%
+                status = "in-progress";
+                lastWatched = new Date(); // Current time
+              }
+
+              // Include all lessons from purchased courses
+              watchedVideos.push({
+                id: lesson.id,
+                title: lesson.title,
+                course: purchasedCourse.courseTitle,
+                courseId: purchasedCourse.courseId,
+                duration: lesson.duration || "15:00", // Default duration if not specified
+                progress,
+                status,
+                lastWatched,
+                thumbnail: lesson.thumbnail || `/course-thumbnails/${purchasedCourse.courseId}.png`,
+                moduleTitle: module.title
+              });
+            });
+          }
+        });
+      }
+    });
+
+    // Sort by last watched date (most recent first)
+    watchedVideos.sort((a, b) => new Date(b.lastWatched) - new Date(a.lastWatched));
+
+    // Calculate metrics
+    const totalHours = user.analytics.totalHours || 0;
+    const videosCompleted = watchedVideos.filter(v => v.status === 'completed').length;
+    const avgSessionMinutes = user.analytics.dailyHours ? Math.round(user.analytics.dailyHours * 60) : 23;
+    const learningStreak = calculateLearningStreak(user.analytics.studySessions);
+
+    res.json({
+      videos: watchedVideos,
+      metrics: {
+        totalHours: totalHours.toFixed(1),
+        videosCompleted,
+        avgSession: `${avgSessionMinutes}min`,
+        learningStreak: `${learningStreak} days`
+      },
+      courses: user.purchasedCourses.map(pc => ({
+        id: pc.courseId,
+        title: pc.courseTitle
+      }))
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Helper function to calculate learning streak
+const calculateLearningStreak = (studySessions) => {
+  if (!studySessions || studySessions.length === 0) return 0;
+
+  const sortedSessions = studySessions
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .map(session => new Date(session.date).toDateString());
+
+  const uniqueDates = [...new Set(sortedSessions)];
+  let streak = 0;
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+  // Check if studied today or yesterday to continue streak
+  if (uniqueDates.includes(today)) {
+    streak = 1;
+    let checkDate = yesterday;
+    while (uniqueDates.includes(checkDate)) {
+      streak++;
+      checkDate = new Date(new Date(checkDate) - 86400000).toDateString();
+    }
+  } else if (uniqueDates.includes(yesterday)) {
+    streak = 1;
+    let checkDate = new Date(Date.now() - 2 * 86400000).toDateString();
+    while (uniqueDates.includes(checkDate)) {
+      streak++;
+      checkDate = new Date(new Date(checkDate) - 86400000).toDateString();
+    }
+  }
+
+  return streak;
+};
+
+export { registerUser, loginUser, getUserProfile, updateUserProfile, purchaseCourse, updateCourseProgress, getWatchedVideos };

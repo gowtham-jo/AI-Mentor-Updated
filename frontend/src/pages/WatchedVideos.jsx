@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, Clock, CheckCircle, TrendingUp, Flame, Play, MoreVertical, ChevronDown } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import API_BASE_URL from '../lib/api';
 
 const WatchedVideos = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -10,70 +11,82 @@ const WatchedVideos = () => {
   const [courseFilter, setCourseFilter] = useState('All Courses');
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [sortBy, setSortBy] = useState('Most Recent');
+  const [videoData, setVideoData] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalHours: '0.0',
+    videosCompleted: 0,
+    avgSession: '0min',
+    learningStreak: '0 days'
+  });
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for video cards
-  const videoData = [
-    {
-      id: 1,
-      title: "Introduction to Neural Networks",
-      course: "Machine Learning Fundamentals",
-      duration: "15:42",
-      progress: 80,
-      status: "in-progress",
-      lastWatched: "2 days ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/intro_to_neural_networks.png"
-    },
-    {
-      id: 2,
-      title: "Deep Learning Architectures",
-      course: "Advanced Deep Learning",
-      duration: "22:15",
-      progress: 100,
-      status: "completed",
-      lastWatched: "1 week ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/deep_learning_architectures.png"
-    },
-    {
-      id: 3,
-      title: "Data Visualization Techniques",
-      course: "Data Science Essentials",
-      duration: "18:30",
-      progress: 33,
-      status: "in-progress",
-      lastWatched: "3 days ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/data_visualization_techniques.png"
-    },
-    {
-      id: 4,
-      title: "Python for Machine Learning",
-      course: "Programming Fundamentals",
-      duration: "25:45",
-      progress: 100,
-      status: "completed",
-      lastWatched: "5 days ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/programming_fundamentals.png"
-    },
-    {
-      id: 5,
-      title: "AI Ethics and Bias",
-      course: "AI Fundamentals",
-      duration: "30:12",
-      progress: 60,
-      status: "in-progress",
-      lastWatched: "1 day ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/ai_fundamentals.png"
-    },
-    {
-      id: 6,
-      title: "Computer Vision Basics",
-      course: "Computer Vision Course",
-      duration: "20:08",
-      progress: 100,
-      status: "completed",
-      lastWatched: "1 week ago",
-      thumbnail: "/AI_Tutor_New_UI/Watched_Videos/computer_vision.png"
-    }
-  ];
+  useEffect(() => {
+    const fetchWatchedVideos = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/api/users/watched-videos`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          setVideoData(data.videos);
+          setMetrics(data.metrics);
+          setCourses(data.courses || []);
+        } else {
+          console.error('Error fetching watched videos:', data.message);
+        }
+      } catch (error) {
+        console.error('Error fetching watched videos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWatchedVideos();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          activePage="watched"
+        />
+        <div className={`flex-1 flex flex-col transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
+        }`}>
+          <Header />
+          <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+              <p className="text-slate-500">Loading watched videos...</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Format last watched date
+  const formatLastWatched = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
 
   // Filtered videos based on search and filters
   const filteredVideos = videoData.filter(video => {
@@ -86,6 +99,22 @@ const WatchedVideos = () => {
     return matchesSearch && matchesCourse && matchesStatus;
   });
 
+  // Sort videos
+  const sortedVideos = [...filteredVideos].sort((a, b) => {
+    switch (sortBy) {
+      case 'Most Recent':
+        return new Date(b.lastWatched) - new Date(a.lastWatched);
+      case 'Oldest First':
+        return new Date(a.lastWatched) - new Date(b.lastWatched);
+      case 'Title A-Z':
+        return a.title.localeCompare(b.title);
+      case 'Title Z-A':
+        return b.title.localeCompare(a.title);
+      default:
+        return 0;
+    }
+  });
+
   const MetricsCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {/* Total Hours */}
@@ -93,7 +122,7 @@ const WatchedVideos = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-sm font-normal mb-1">Total Hours</p>
-            <p className="text-slate-900 text-2xl font-bold">47.5h</p>
+            <p className="text-slate-900 text-2xl font-bold">{metrics.totalHours}h</p>
           </div>
           <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
             <Clock className="w-4 h-4 text-blue-600" />
@@ -106,7 +135,7 @@ const WatchedVideos = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-sm font-normal mb-1">Videos Completed</p>
-            <p className="text-slate-900 text-2xl font-bold">142</p>
+            <p className="text-slate-900 text-2xl font-bold">{metrics.videosCompleted}</p>
           </div>
           <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
             <CheckCircle className="w-4 h-4 text-green-600" />
@@ -119,7 +148,7 @@ const WatchedVideos = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-sm font-normal mb-1">Avg Session</p>
-            <p className="text-slate-900 text-2xl font-bold">23min</p>
+            <p className="text-slate-900 text-2xl font-bold">{metrics.avgSession}</p>
           </div>
           <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
             <TrendingUp className="w-4 h-4 text-indigo-600" />
@@ -132,7 +161,7 @@ const WatchedVideos = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-slate-500 text-sm font-normal mb-1">Learning Streak</p>
-            <p className="text-slate-900 text-2xl font-bold">12 days</p>
+            <p className="text-slate-900 text-2xl font-bold">{metrics.learningStreak}</p>
           </div>
           <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
             <Flame className="w-4 h-4 text-orange-600" />
@@ -165,12 +194,9 @@ const WatchedVideos = () => {
             onChange={(e) => setCourseFilter(e.target.value)}
           >
             <option>All Courses</option>
-            <option>Machine Learning Fundamentals</option>
-            <option>Advanced Deep Learning</option>
-            <option>Data Science Essentials</option>
-            <option>Programming Fundamentals</option>
-            <option>AI Fundamentals</option>
-            <option>Computer Vision Course</option>
+            {courses.map(course => (
+              <option key={course.id} value={course.title}>{course.title}</option>
+            ))}
           </select>
           <select
             className="h-[43px] px-3 pr-8 border border-gray-200 rounded-lg bg-white text-black w-full sm:min-w-[120px]"
@@ -210,8 +236,12 @@ const WatchedVideos = () => {
         </div>
         {/* Progress Bar */}
         <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-300">
-          <div 
-            className={`h-full ${video.status === 'completed' ? 'bg-green-500' : 'bg-orange-500'}`}
+          <div
+            className={`h-full ${
+              video.status === 'completed' ? 'bg-green-500' :
+              video.status === 'in-progress' ? 'bg-orange-500' :
+              'bg-gray-400'
+            }`}
             style={{ width: `${video.progress}%` }}
           ></div>
         </div>
@@ -226,7 +256,7 @@ const WatchedVideos = () => {
           <span className={video.status === 'completed' ? 'text-green-600 font-medium' : ''}>
             {video.status === 'completed' ? 'Completed' : `${video.progress}% Complete`}
           </span>
-          <span>{video.lastWatched}</span>
+          <span>{formatLastWatched(video.lastWatched)}</span>
         </div>
         
         {/* Action Buttons */}
@@ -290,7 +320,7 @@ const WatchedVideos = () => {
 
           {/* Video Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
-            {filteredVideos.map(video => (
+            {sortedVideos.map(video => (
               <VideoCard key={video.id} video={video} />
             ))}
           </div>

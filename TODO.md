@@ -1,2 +1,4 @@
-- [x] Update Header.jsx to use dynamic profile icon from Dicebear API based on user.firstName and user.lastName
-- [x] Update Sidebar.jsx to use dynamic profile icon from Dicebear API based on user.firstName and user.lastName
+- Create backend API endpoint to get watched videos data from user's purchased courses and progress
+- Update WatchedVideos page to fetch dynamic data instead of static mock data
+- Update metrics cards to use user's analytics data
+- Implement dynamic search and filtering for videos
