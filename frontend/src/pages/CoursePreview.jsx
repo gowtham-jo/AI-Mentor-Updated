@@ -179,7 +179,7 @@ export default function CoursePreview() {
                     ))}
                   </div>
                   <div className="text-[#0D0D0D] text-2xl font-bold mb-1">{courseData.rating}</div>
-                  <div className="text-[#9CA3AF] text-base">{courseData.reviews.toLocaleString()} reviews</div>
+                  <div className="text-[#9CA3AF] text-base">{(courseData.reviews || 0).toLocaleString()} reviews</div>
                 </div>
 
                 <div className="text-center">

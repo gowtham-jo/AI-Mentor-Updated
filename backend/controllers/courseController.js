@@ -130,14 +130,73 @@ const getMyCourses = async (req, res) => {
 // @access  Private/Admin
 const addCourse = async (req, res) => {
   try {
-    const course = new Course(req.body);
+    const { id, title, category, level, rating, students, lessons, price, image, categoryColor } = req.body;
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+
+    // Check if course with this id already exists
+    const existingCourse = await Course.findOne({ id });
+    if (existingCourse) {
+      return res.status(400).json({ message: 'Course with this ID already exists' });
+    }
+
+    const course = new Course({
+      id: parseInt(id),
+      title,
+      category,
+      level,
+      rating: parseFloat(rating),
+      students,
+      lessonsCount: lessons,
+      price,
+      image,
+      categoryColor,
+      isBookmarked: false,
+      // CoursePreview fields with defaults
+      tags: ['New Course'],
+      subtitle: 'Learn and master this topic',
+      instructor: 'Expert Instructor',
+      lastUpdated: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      language: 'English',
+      subtitles: false,
+      duration: '0h 0m',
+      reviews: 0,
+      thumbnail: image,
+      whatYouLearn: ['Understanding the basics', 'Practical applications', 'Advanced concepts'],
+      curriculum: [],
+      priceDetails: {
+        current: parseInt(price.replace('₹', '')),
+        original: parseInt(price.replace('₹', '')),
+        discount: '0%'
+      },
+      countdown: null,
+      features: [
+        { icon: '/ui/check.png', text: 'Lifetime access' },
+        { icon: '/ui/check.png', text: 'Certificate of completion' },
+        { icon: '/ui/check.png', text: 'Mobile and TV access' }
+      ],
+      // Learning fields
+      modules: [],
+      course: {
+        title,
+        subtitle: category,
+        logo: image,
+        progress: 0
+      },
+      currentLesson: null,
+      // Stats fields
+      statsCards: [],
+      courseCards: [],
+      popularCourses: []
+    });
+
     const createdCourse = await course.save();
     res.status(201).json(createdCourse);
   } catch (error) {
     console.error(error);
-    if (error.code === 11000) {
-        return res.status(400).json({ message: 'Course with this ID already exists.' });
-    }
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -147,6 +206,11 @@ const addCourse = async (req, res) => {
 // @access  Private/Admin
 const deleteCourse = async (req, res) => {
   try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+
     const course = await Course.findOne({ id: req.params.id });
 
     if (course) {
@@ -167,6 +231,11 @@ const deleteCourse = async (req, res) => {
 // @access  Private/Admin
 const updateLessonVideo = async (req, res) => {
   try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+
     const { courseId, lessonId } = req.params;
     const { youtubeUrl } = req.body;
 
@@ -180,22 +249,22 @@ const updateLessonVideo = async (req, res) => {
     for (const module of course.modules) {
       const lesson = module.lessons.find(l => l.id === lessonId);
       if (lesson) {
+        lesson.youtubeUrl = youtubeUrl;
         lessonUpdated = true;
-        break; // Lesson found, but we'll update currentLesson if it's the current one
+        break;
       }
     }
 
     // Update currentLesson if it matches
     if (course.currentLesson && course.currentLesson.id === lessonId) {
       course.currentLesson.youtubeUrl = youtubeUrl;
-      await course.save();
-      return res.json({ message: 'Lesson video URL updated successfully' });
     }
 
     if (!lessonUpdated) {
       return res.status(404).json({ message: 'Lesson not found' });
     }
 
+    await course.save();
     res.json({ message: 'Lesson video URL updated successfully' });
   } catch (error) {
     console.error(error);
@@ -210,6 +279,11 @@ const addSubtopics = async (req, res) => {
   try {
     const { courseId } = req.params;
     const { subtopics } = req.body; // Array of subtopic objects
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
 
     const course = await Course.findOne({ id: courseId });
     if (!course) {
@@ -239,6 +313,11 @@ const addLessons = async (req, res) => {
     const { courseId, moduleId } = req.params;
     const { lessons } = req.body; // Array of lesson objects
 
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+
     const course = await Course.findOne({ id: courseId });
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
@@ -253,45 +332,6 @@ const addLessons = async (req, res) => {
     await course.save();
 
     res.json({ message: 'Lessons added successfully', module: module });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server Error' });
-  }
-};
-
-// @desc    Add a new course
-// @route   POST /api/courses
-// @access  Private/Admin
-const addCourse = async (req, res) => {
-  try {
-    const { id, title, category, level, rating, students, lessonsCount, price, image, categoryColor } = req.body;
-
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied. Admin role required.' });
-    }
-
-    // Check if course with this id already exists
-    const existingCourse = await Course.findOne({ id });
-    if (existingCourse) {
-      return res.status(400).json({ message: 'Course with this ID already exists' });
-    }
-
-    const course = new Course({
-      id,
-      title,
-      category,
-      level,
-      rating,
-      students,
-      lessonsCount,
-      price,
-      image,
-      categoryColor
-    });
-
-    const createdCourse = await course.save();
-    res.status(201).json(createdCourse);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });

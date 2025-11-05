@@ -25,6 +25,7 @@ const AdminPage = () => {
   const [subtopics, setSubtopics] = useState([{ title: '', goal: '', topics: [''], tools: [''], activities: [''], assignment: '', activity: '' }]);
   const [newLessons, setNewLessons] = useState([{ id: '', title: '', duration: '', completed: false, playing: false, type: 'video' }]);
   const [selectedModule, setSelectedModule] = useState('');
+  const [newModules, setNewModules] = useState([{ id: '', title: '' }]);
 
   const fetchCourses = async () => {
     try {
@@ -199,9 +200,10 @@ const AdminPage = () => {
       if (!response.ok) {
         throw new Error('Failed to add lessons');
       }
-      alert('Lessons added successfully!');
-      setNewLessons([{ id: '', title: '', duration: '', completed: false, playing: false, type: 'video' }]);
-      setSelectedModule('');
+                            alert('Lessons added successfully!');
+                            setNewLessons([{ id: '', title: '', duration: '', completed: false, playing: false, type: 'video' }]);
+                            setSelectedModule('');
+                            await handleManageCourse(selectedCourse.id); // Refresh course data to include new lessons
     } catch (error) {
       console.error('Error adding lessons:', error);
       alert(`Error: ${error.message}`);
@@ -274,10 +276,70 @@ const AdminPage = () => {
 
                   {/* Tabs */}
                   <div className="flex border-b mb-4">
+                    <button onClick={() => setActiveTab('modules')} className={`px-4 py-2 ${activeTab === 'modules' ? 'border-b-2 border-blue-500' : ''}`}>Modules</button>
                     <button onClick={() => setActiveTab('videos')} className={`px-4 py-2 ${activeTab === 'videos' ? 'border-b-2 border-blue-500' : ''}`}>Video URLs</button>
                     <button onClick={() => setActiveTab('subtopics')} className={`px-4 py-2 ${activeTab === 'subtopics' ? 'border-b-2 border-blue-500' : ''}`}>Subtopics</button>
                     <button onClick={() => setActiveTab('lessons')} className={`px-4 py-2 ${activeTab === 'lessons' ? 'border-b-2 border-blue-500' : ''}`}>Lessons</button>
                   </div>
+
+                  {/* Modules Tab */}
+                  {activeTab === 'modules' && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Add Modules to Course</h3>
+                      <div className="space-y-4">
+                        {newModules.map((module, index) => (
+                          <div key={index} className="border p-4 rounded">
+                            <input
+                              type="text"
+                              placeholder="Module ID"
+                              value={module.id}
+                              onChange={(e) => {
+                                const updatedModules = [...newModules];
+                                updatedModules[index].id = e.target.value;
+                                setNewModules(updatedModules);
+                              }}
+                              className="w-full p-2 border rounded mb-2"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Module Title"
+                              value={module.title}
+                              onChange={(e) => {
+                                const updatedModules = [...newModules];
+                                updatedModules[index].title = e.target.value;
+                                setNewModules(updatedModules);
+                              }}
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                        ))}
+                        <button onClick={() => setNewModules([...newModules, { id: '', title: '' }])} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Another Module</button>
+                        <button onClick={async () => {
+                          const token = localStorage.getItem('token');
+                          try {
+                            const response = await fetch(`/api/courses/${selectedCourse.id}/modules`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({ modules: newModules }),
+                            });
+
+                            if (!response.ok) {
+                              throw new Error('Failed to add modules');
+                            }
+                            alert('Modules added successfully!');
+                            setNewModules([{ id: '', title: '' }]);
+                            await handleManageCourse(selectedCourse.id); // Refresh course data to include new modules
+                          } catch (error) {
+                            console.error('Error adding modules:', error);
+                            alert(`Error: ${error.message}`);
+                          }
+                        }} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 ml-2">Save Modules</button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Video URLs Tab */}
                   {activeTab === 'videos' && (
