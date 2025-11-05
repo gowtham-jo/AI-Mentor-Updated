@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ChevronRight, Home, BookOpen, MessageCircle, BarChart3, Settings, PlayCircle } from 'lucide-react'
+import API_BASE_URL from '../lib/api'
 
 const Sidebar = ({
   sidebarOpen,
@@ -24,7 +25,7 @@ const Sidebar = ({
     const fetchNavigationItems = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/sidebar/navigation', {
+        const response = await fetch(`${API_BASE_URL}/api/sidebar/navigation`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
