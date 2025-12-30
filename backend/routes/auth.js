@@ -17,7 +17,6 @@ router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    // ✅ Basic validation (prevents silent crashes)
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -83,6 +82,55 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// 🔥 NEW: @route   POST /api/auth/google-login
+// @desc    Google OAuth login - exchange Firebase token for JWT
+router.post("/google-login", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ message: "ID token required" });
+    }
+
+    // Decode Firebase ID token (client-side verified)
+    const payload = JSON.parse(
+      Buffer.from(idToken.split(".")[1], "base64").toString()
+    );
+    const uid = payload.sub;
+    const email = payload.email;
+    const name = payload.name || email.split("@")[0];
+
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        googleId: uid,
+        role: "user",
+      });
+    }
+
+    // Generate your app's JWT
+    const token = generateToken(user._id);
+
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      bio: user.bio,
+      purchasedCourses: user.purchasedCourses,
+      token,
+    });
+  } catch (error) {
+    console.error("Google login error:", error);
+    res.status(401).json({ message: "Google login failed" });
   }
 });
 
