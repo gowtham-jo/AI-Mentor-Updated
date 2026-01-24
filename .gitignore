@@ -10,7 +10,8 @@ pnpm-debug.log*
 ai_service/
 
 venv/
-/venv/
+
+
 # =====================
 # Environment files
 # =====================
