@@ -31,19 +31,13 @@ def generate_video(face_path: str, audio_path: str, output_path: str):
     print("\n🔥 WAV2LIP COMMAND:")
     print(" ".join(command))
 
+    print("\n🚀 STARTING WAV2LIP...")
     result = subprocess.run(
         command,
-        capture_output=True,
         text=True
     )
 
-    print("\n📤 WAV2LIP STDOUT:")
-    print(result.stdout)
-
-    print("\n📥 WAV2LIP STDERR:")
-    print(result.stderr)
-
     if result.returncode != 0:
-        raise RuntimeError("❌ Wav2Lip failed. See error above.")
+        raise RuntimeError("❌ Wav2Lip failed. Check the logs above.")
 
     print("✅ Wav2Lip video generated successfully")
