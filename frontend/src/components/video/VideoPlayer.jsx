@@ -38,7 +38,6 @@ const VideoPlayer = ({
       >
         {/* ===== KEEP YOUR EXISTING VIDEO / IFRAME CODE INSIDE ===== */}
 
-<<<<<<< HEAD
         {selectedCelebrity && celebrityVideoMap[selectedCelebrity] ? (
           <video
             ref={videoRef}
@@ -53,9 +52,6 @@ const VideoPlayer = ({
             playsInline
           />
         ) : currentLesson?.youtubeUrl ? (
-=======
-        {currentLesson?.youtubeUrl ? (
->>>>>>> upstream/main
           <iframe
             key={currentLesson.id}
             src={`https://www.youtube.com/embed/${getYouTubeVideoId(
@@ -72,11 +68,6 @@ const VideoPlayer = ({
             ref={videoRef}
             src={
               aiVideoUrl ||
-<<<<<<< HEAD
-=======
-              (selectedCelebrity &&
-                celebrityVideoMap[selectedCelebrity]?.video) ||
->>>>>>> upstream/main
               currentLesson?.videoUrl
             }
             className="w-full h-full object-contain bg-black"
